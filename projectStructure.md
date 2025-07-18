@@ -1,4 +1,4 @@
-# 🏗️ LiveStock Tracker - Project Structure
+#  LiveStock Tracker - Project Structure
 
 ## 📁 Complete Project Directory Structure
 
