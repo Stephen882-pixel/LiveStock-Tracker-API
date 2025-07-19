@@ -19,7 +19,7 @@ class BreedListSerializer(generics.ListCreateAPIView):
     ordering_fields = ["name","created_at"]
     ordering =  ["name"]
 
-class BreedDetailVIews(generics.RetrieveUpdateDestroyAPIView)
+class BreedDetailVIews(generics.RetrieveUpdateDestroyAPIView):
     queryset = Breed.objects.all()
     serializer_class = BreedSerializer
 
@@ -35,5 +35,14 @@ class AnimalListCreateView(generics.ListCreateAPIView):
         if self.request.method == 'POST':
             return AnimalCreateSerializer
         return AnimalListSerializer
+
+
+class AnimalDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Animal.objects.select_related('breed').all()
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT','PATCH']:
+            return AnimalCreateSerializer
+        return AnimalDetailSerializer
 
 
