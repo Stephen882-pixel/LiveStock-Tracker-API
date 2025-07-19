@@ -19,3 +19,21 @@ class BreedListSerializer(generics.ListCreateAPIView):
     ordering_fields = ["name","created_at"]
     ordering =  ["name"]
 
+class BreedDetailVIews(generics.RetrieveUpdateDestroyAPIView)
+    queryset = Breed.objects.all()
+    serializer_class = BreedSerializer
+
+class AnimalListCreateView(generics.ListCreateAPIView):
+    queryset = Animal.objects.select_related('breed').all()
+    filter_backends = [DjangoFilterBackend, SearchFilter,OrderingFilter]
+    filterset_fields = ['breed','gender','health_status']
+    search_fields = ['tag_id','name','breed_name']
+    ordering_fields = ['created_at', 'name', 'weight', 'date_of_birth']
+    ordering = ['-created_at']
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return AnimalCreateSerializer
+        return AnimalListSerializer
+
+
