@@ -11,7 +11,7 @@ from .serializers import (
 )
 
 # Create your views here.
-class BreedListSerializer(generics.ListCreateAPIView):
+class BreedListCreateView(generics.ListCreateAPIView):
     queryset = Breed.objects.all()
     serializer_class = BreedSerializer
     filter_backends = [SearchFilter, OrderingFilter]
