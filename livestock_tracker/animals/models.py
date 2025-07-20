@@ -64,5 +64,15 @@ class Animal(models.Model):
     def __str__(self):
         return f"{self.tag_id} - {self.name}"
 
+    @property
+    def age_in_days(self):
+        """Calculate age in days"""
+        return (date.today() - self.date_of_birth).days
+
+    @property
+    def age_in_years(self):
+        """Calculate age in years"""
+        return self.age_in_days // 365
+
 
 
