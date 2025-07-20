@@ -27,7 +27,7 @@ class AnimalListCreateView(generics.ListCreateAPIView):
     queryset = Animal.objects.select_related('breed').all()
     filter_backends = [DjangoFilterBackend, SearchFilter,OrderingFilter]
     filterset_fields = ['breed','gender','health_status']
-    search_fields = ['tag_id','name','breed_name']
+    search_fields = ['tag_id','name','breed__name']
     ordering_fields = ['created_at', 'name', 'weight', 'date_of_birth']
     ordering = ['-created_at']
 

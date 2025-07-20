@@ -4,7 +4,7 @@ from rest_framework import  serializers
 from .models import  Animal,Breed
 
 class BreedSerializer(serializers.ModelSerializer):
-    animals_count = serializers.SerializerMethodField()
+    #animals_count = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -21,7 +21,7 @@ class AnimalListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Animal
-        fields = ['id','tag_id','name','breed','breed_name','gender','date_of_birth','weight','health_status','created_at','updated_at']
+        fields = ['id','tag_id','name','breed','breed__name','gender','date_of_birth','weight','health_status','created_at','updated_at']
 
 
 class AnimalDetailSerializer(serializers.ModelSerializer):

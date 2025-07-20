@@ -31,6 +31,13 @@ class Animal(models.Model):
         ('recovering', 'Recovering'),
     ]
 
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('sold', 'Sold'),
+        ('deceased', 'Deceased'),
+    ]
+
     tag_id = models.CharField(max_length=50,unique=True)
     name = models.CharField(max_length=100)
     breed = models.ForeignKey(Breed,on_delete=models.CASCADE,related_name='animals')
@@ -42,7 +49,10 @@ class Animal(models.Model):
         validators=[MinValueValidator(0)],
         help_text="Weight in Kilograms"
     )
-    health_status = models.CharField(max_length=20,choices=HEALTH_STATUS_CHOICES,default='healthy'),
+    color = models.CharField(max_length=50,blank=True)
+    status = models.CharField(max_length=50,choices=STATUS_CHOICES,default='active')
+    location = models.CharField(max_length=200,blank=True,null=True)
+    health_status = models.CharField(max_length=20,choices=HEALTH_STATUS_CHOICES,default='healthy')
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
