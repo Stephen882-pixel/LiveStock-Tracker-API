@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     # Local apps
     'animals'
     'tracking',
+    'django.contrib.gis',
 ]
 
 MIDDLEWARE = [

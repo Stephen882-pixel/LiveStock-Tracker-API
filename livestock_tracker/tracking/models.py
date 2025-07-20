@@ -129,3 +129,154 @@ class AnimalLocation(models.Model):
 
     def __str__(self):
         return f"{self.animal.tag_id} - {self.recorded_at}"
+
+
+class GeofenceEvent(models.Model):
+    """Records geo-fence boundary violations and entries"""
+    EVENT_TYPE_CHOICES = [
+        ('entry','Zone Entry'),
+        ('exit','Zone Exit'),
+        ('violation','Boundary Violation'),
+        ('return','Return to Zone'),
+        ('timeout','Extended Outside zone'),
+    ]
+
+    SEVERITY_CHOICES = [
+        ('low','Low'),
+        ('medium','Medium'),
+        ('high','High'),
+        ('critical','Critical'),
+    ]
+
+    event_id = models.UUIDField(default=uuid.uuid4,editable=False,unique=True)
+    animal = models.ForeignKey(Animal,on_delete=models.CASCADE,related_name='geofence_events')
+    zone = models.ForeignKey(GrazingZone,on_delete=models.CASCADE,related_name='events',null=True,blank=True)
+    location_record = models.ForeignKey(AnimalLocation,on_delete=models.CASCADE,related_name='evensts')
+
+    event_type = models.CharField(max_length=20,choices=EVENT_TYPE_CHOICES)
+    severity = models.CharField(max_length=20,choices=SEVERITY_CHOICES,default='medium')
+
+    # Event details
+    distance_from_boundary = models.DecimalField(max_digits=10,decimal_places=2,null=True,blank=True,help_text='Distance in meters')
+    duration_outside = models.DurationField(null=True,blank=True,help_text="How long the animal has been outside")
+
+    # Alert status
+    # alert_sent = models.BooleanField(default=False)
+    # alert_acknowledged = models.BooleanField(default=False)
+    # acknowledged_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    # acknowledged_at = models.DateTimeField(null=True, blank=True)
+
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['animal', '-created_at']),
+            models.Index(fields=['event_type', '-created_at']),
+            models.Index(fields=['alert_sent', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.animal.tag_id} - {self.get_event_type_display()} - {self.created_at}"
+
+class NotificationContact(models.Model):
+    CONTACT_TYPE_CHOICES = [
+        ('owner', 'Owner'),
+        # ('farm_manager', 'Farm Manager'),
+        # ('veterinarian', 'Veterinarian'),
+        # ('security', 'Security Personnel'),
+        # ('emergency', 'Emergency Contact'),
+    ]
+    NOTIFICATION_METHOD_CHOICES = [
+        ('sms', 'SMS'),
+        ('voice', 'Voice Call'),
+        ('ussd', 'USSD'),
+        ('email', 'Email'),
+    ]
+
+    name = models.CharField(max_length=200)
+    contact_type = models.CharField(max_length=20,choices=CONTACT_TYPE_CHOICES)
+    phone_number = models.CharField(max_length=20,help_text="Phone number for Africa's Talking (include country code)")
+    email = models.EmailField(blank=True)
+
+    # Notification preferences
+    preferred_methods = models.JSONField(default=list, help_text="List of preferred notification methods")
+    notification_hours_start = models.TimeField(default='06:00:00', help_text="Start of notification hours")
+    notification_hours_end = models.TimeField(default='22:00:00', help_text="End of notification hours")
+
+    # Associations
+    animals = models.ManyToManyField('Animal', blank=True, related_name='notification_contacts')
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} ({self.phone_number})"
+
+class NotificationLog(models.Model):
+    """Logs all notifications sent via Africa's Talking"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('sent', 'Sent'),
+        ('delivered', 'Delivered'),
+        ('failed', 'Failed'),
+        ('expired', 'Expired'),
+    ]
+
+    notification_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    geofence_event = models.ForeignKey(GeofenceEvent, on_delete=models.CASCADE, related_name='notifications')
+    contact = models.ForeignKey(NotificationContact, on_delete=models.CASCADE, related_name='notifications')
+
+    method = models.CharField(max_length=10, choices=NotificationContact.NOTIFICATION_METHOD_CHOICES)
+    message = models.TextField()
+
+    # Africa's Talking specific fields
+    at_message_id = models.CharField(max_length=100,blank=True,help_text="Africa's Talking message ID")
+    at_session_id = models.CharField(max_length=100, blank=True, help_text="Africa's Talking session ID")
+    cost = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, help_text="Cost in KES")
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    sent_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    failed_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['method', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.method} to {self.contact.name} - {self.status}"
+
+class AnimalGrazingAssignment(models.Model):
+    """Assigns animals to specific grazing zones"""
+    animal = models.ForeignKey(Animal, on_delete=models.CASCADE, related_name='grazing_assignments')
+    zone = models.ForeignKey(GrazingZone, on_delete=models.CASCADE, related_name='animal_assignments')
+
+    # assigned_at = models.DateTimeField(auto_now_add=True)
+    # assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    # is_active = models.BooleanField(default=True)
+
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['animal', 'zone', 'is_active']
+
+    def __str__(self):
+        return f"{self.animal.tag_id} -> {self.zone.name}"
+
+
+
+
+
+
