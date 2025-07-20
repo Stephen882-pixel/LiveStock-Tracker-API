@@ -3,14 +3,14 @@ from .views import (
     AnimalListCreateView,
     AnimalDetailView,
     BreedListCreateView,
-    BreedDetailVIews
+    BreedDetailViews
 )
 
 
 urlpatterns = [
     # Breed Urls
     path('breeds/',BreedListCreateView.as_view(),name='breed-list-create'),
-    path('breeds/<int:pk>/',BreedDetailVIews.as_view(),name='breed-detail'),
+    path('breeds/<int:pk>/',BreedDetailViews.as_view(),name='breed-detail'),
 
     #Anima URLS
     path('animals/',AnimalListCreateView.as_view(),name='animal-list-create'),
