@@ -19,15 +19,15 @@ class BreedListCreateView(generics.ListCreateAPIView):
     ordering_fields = ["name","created_at"]
     ordering =  ["name"]
 
-class BreedDetailVIews(generics.RetrieveUpdateDestroyAPIView):
+class BreedDetailViews(generics.RetrieveUpdateDestroyAPIView):
     queryset = Breed.objects.all()
     serializer_class = BreedSerializer
 
 class AnimalListCreateView(generics.ListCreateAPIView):
     queryset = Animal.objects.select_related('breed').all()
     filter_backends = [DjangoFilterBackend, SearchFilter,OrderingFilter]
-    filterset_fields = ['breed','gender','health_status']
-    search_fields = ['tag_id','name','breed__name']
+    filterset_fields = ['breed','gender','health_status','status']
+    search_fields = ['tag_id','name','breed__name','color']
     ordering_fields = ['created_at', 'name', 'weight', 'date_of_birth']
     ordering = ['-created_at']
 
