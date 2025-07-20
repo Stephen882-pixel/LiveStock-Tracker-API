@@ -5,7 +5,9 @@ from django.core.validators import MinValueValidator,MaxValueValidator
 from django.contrib.auth.models import User
 from decimal import  Decimal
 import  uuid
-from livestock_tracker.animals.models import Animal
+# from livestock_tracker.animals.models import Animal
+
+from animals.models import Animal
 
 # Create your models here.
 
@@ -66,7 +68,7 @@ class TrackingDevice(models.Model):
 
     device_id = models.CharField(max_length=100,unique=True,help_text="Unique device identifier")
     device_type = models.CharField(max_length=20,choices=DEVICE_TYPE_CHOICES)
-    manufacturer = models.CharField(max_length=100,blank=true)
+    manufacturer = models.CharField(max_length=100,blank=True)
     model = models.CharField(max_length=100,blank=True)
 
     # Device specifications
@@ -169,13 +171,13 @@ class GeofenceEvent(models.Model):
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['animal', '-created_at']),
-            models.Index(fields=['event_type', '-created_at']),
-            models.Index(fields=['alert_sent', '-created_at']),
-        ]
+    # class Meta:
+    #     ordering = ['-created_at']
+    #     indexes = [
+    #         models.Index(fields=['animal', '-created_at']),
+    #         models.Index(fields=['event_type', '-created_at']),
+    #         models.Index(fields=['alert_sent', '-created_at']),
+    #     ]
 
     def __str__(self):
         return f"{self.animal.tag_id} - {self.get_event_type_display()} - {self.created_at}"
@@ -206,7 +208,7 @@ class NotificationContact(models.Model):
     notification_hours_end = models.TimeField(default='22:00:00', help_text="End of notification hours")
 
     # Associations
-    animals = models.ManyToManyField('Animal', blank=True, related_name='notification_contacts')
+    animals = models.ManyToManyField(Animal, blank=True, related_name='notification_contacts')
 
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -245,6 +247,9 @@ class NotificationLog(models.Model):
     delivered_at = models.DateTimeField(null=True, blank=True)
     failed_reason = models.TextField(blank=True)
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     class Meta:
         ordering = ['-created_at']
         indexes = [
@@ -262,7 +267,7 @@ class AnimalGrazingAssignment(models.Model):
 
     # assigned_at = models.DateTimeField(auto_now_add=True)
     # assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    # is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
 
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -274,6 +279,7 @@ class AnimalGrazingAssignment(models.Model):
 
     def __str__(self):
         return f"{self.animal.tag_id} -> {self.zone.name}"
+
 
 
 

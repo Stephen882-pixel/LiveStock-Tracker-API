@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     'corsheaders',
     
     # Local apps
-    'animals'
+    'animals',
     'tracking',
     'django.contrib.gis',
 ]

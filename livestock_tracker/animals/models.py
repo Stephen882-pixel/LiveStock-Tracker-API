@@ -76,3 +76,5 @@ class Animal(models.Model):
 
 
 
+
+
