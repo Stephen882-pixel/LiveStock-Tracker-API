@@ -45,3 +45,51 @@ class GrazingZone(models.Model):
 
     def __str__(self):
         return f"{self.name}"
+
+
+class TrackingDevice(models.Model):
+    """Represents GPS tracking devices attached to animals"""
+    DEVICE_TYPE_CHOICES = [
+        ("gps_collar","GPS Collar"),
+        ("ear tag","GPS Ear Tag"),
+        ("ankle_band","GPS Ankle Band"),
+        ("implant","GPS Implant")
+    ]
+
+    STATUS_CHOICES = [
+        ("active","Active"),
+        ("inactive","Inactive"),
+        ('maintenance', 'Under Maintenance'),
+        ('lost', 'Lost/Damaged'),
+    ]
+
+    device_id = models.CharField(max_length=100,unique=True,help_text="Unique device identifier")
+    device_type = models.CharField(max_length=20,choices=DEVICE_TYPE_CHOICES)
+    manufacturer = models.CharField(max_length=100,blank=true)
+    model = models.CharField(max_length=100,blank=True)
+
+    # Device specifications
+    battery_life_days = models.IntegerField(null=True,blank=True)
+    update_interval_minutes = models.IntegerField(default=15,help_text="GPS update frequency in minutes")
+    accuracy_meters = models.IntegerField(null=True,blank=True,help_text="GPS accuracy in meters")
+
+    # Current status
+    status = models.CharField(max_length=20,choices=STATUS_CHOICES,default="active")
+    last_battery_level = models.IntegerField(null=True,blank=True,validators=[MinValueValidator(0),MaxValueValidator(100)])
+    last_signal_strength = models.IntegerField(null=True,blank=True,help_text="Signal strength_percentage")
+
+    # Assignment
+    animal = models.OneToOneField('Animal',on_delete=models.SET_NULL,null=True,blank=True,related_name='tracking_device')
+    assigned_date = models.DateTimeField(null=True,blank=True)
+
+    created_at = models.DateTimeField(auto_now_add = True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+    class Meta:
+        ordering = ['-device_id']
+
+    def __str__(self):
+        animal_name = self.animal.name if self.animal else "Unassigned"
+        return f"{self.device_id} - {animal_name}"
+    
