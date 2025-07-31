@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Livestock Tracking - Live Updates</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .panel { background: white; margin: 20px 0; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .status { padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .connected { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .disconnected { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .alert { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; padding: 10px; margin: 5px 0; border-radius: 4px; }
+        .location-update { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; padding: 10px; margin: 5px 0; border-radius: 4px; }
+        .device-update { background: #e2e3e5; color: #383d41; border: 1px solid #d6d8db; padding: 10px; margin: 5px 0; border-radius: 4px; }
+        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        input, select { padding: 8px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .updates { max-height: 400px; overflow-y: auto; }
+        .timestamp { font-size: 0.8em; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐄 Livestock Tracking - Live Updates</h1>
+
+        <div class="panel">
+            <h3>Connection Status</h3>
+            <div id="status" class="status disconnected">Disconnected</div>
+            <div class="controls">
+                <button id="connectBtn" class="btn-primary" onclick="connect()">Connect</button>
+                <button id="disconnectBtn" class="btn-warning" onclick="disconnect()">Disconnect</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>Controls</h3>
+            <div class="controls">
+                <button class="btn-success" onclick="getRecentLocations(30)">Get Recent Locations (30min)</button>
+                <input type="number" id="animalId" placeholder="Animal ID" min="1">
+                <button class="btn-primary" onclick="subscribeToAnimal()">Subscribe to Animal</button>
+                <button class="btn-warning" onclick="unsubscribeFromAnimal()">Unsubscribe</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>Active Devices</h3>
+            <div id="devices">No devices loaded</div>
+        </div>
+
+        <div class="panel">
+            <h3>Live Updates</h3>
+            <div id="updates" class="updates">
+                <p>Connect to start receiving updates...</p>
+            </div>
+            <button onclick="clearUpdates()" class="btn-warning">Clear Updates</button>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let isConnected = false;
+
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/tracking/`;
+
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = function(e) {
+                isConnected = true;
+                updateStatus('Connected', 'connected');
+                console.log('WebSocket connected');
+            };
+
+            socket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                handleMessage(data);
+            };
+
+            socket.onclose = function(e) {
+                isConnected = false;
+                updateStatus('Disconnected', 'disconnected');
+                console.log('WebSocket disconnected');
+            };
+
+            socket.onerror = function(e) {
+                console.error('WebSocket error:', e);
+                addUpdate('❌ WebSocket Error', 'alert');
+            };
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.close();
+            }
+        }
+
+        function updateStatus(text, className) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = text;
+            statusEl.className = `status ${className}`;
+        }
+
+        function handleMessage(data) {
+            console.log('Received:', data);
+
+            switch(data.type) {
+                case 'active_devices':
+                    updateDevices(data.data);
+                    break;
+                case 'location_update':
+                    addLocationUpdate(data.data);
+                    break;
+                case 'geofence_alert':
+                    addGeofenceAlert(data.data);
+                    break;
+                case 'device_status_update':
+                    addDeviceUpdate(data.data);
+                    break;
+                case 'recent_locations':
+                    addUpdate(`📍 Received ${data.data.length} recent locations`, 'location-update');
+                    break;
+                case 'current_location':
+                    addUpdate(`📍 Current location for Animal ${data.animal_id}: ${data.data.latitude}, ${data.data.longitude}`, 'location-update');
+                    break;
+                case 'unacknowledged_alerts':
+                    addUpdate(`⚠️ ${data.data.length} unacknowledged alerts found`, 'alert');
+                    data.data.forEach(alert => addGeofenceAlert(alert));
+                    break;
+                case 'error':
+                    addUpdate(`❌ Error: ${data.message}`, 'alert');
+                    break;
+            }
+        }
+
+        function updateDevices(devices) {
+            const devicesEl = document.getElementById('devices');
+            if (devices.length === 0) {
+                devicesEl.innerHTML = 'No active devices';
+                return;
+            }
+
+            devicesEl.innerHTML = devices.map(device => `
+                <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    <strong>${device.device_id}</strong> - ${device.animal_name}
+                    <br>Battery: ${device.battery_level}% | Last seen: ${device.last_seen ? new Date(device.last_seen).toLocaleString() : 'Never'}
+                </div>
+            `).join('');
+        }
+
+        function addLocationUpdate(data) {
+            const message = `📍 ${data.animal_name} (${data.device_id}) moved to ${data.latitude}, ${data.longitude}`;
+            const details = `Accuracy: ${data.accuracy}m | Speed: ${data.speed || 'N/A'} km/h`;
+            addUpdate(`${message}<br><small>${details}</small>`, 'location-update');
+        }
+
+        function addGeofenceAlert(data) {
+            const action = data.alert_type === 'ENTER' ? 'entered' : 'exited';
+            const message = `🚨 ${data.animal_name} ${action} ${data.zone_name}`;
+            const details = `Location: ${data.latitude}, ${data.longitude}`;
+            addUpdate(`${message}<br><small>${details}</small>`, 'alert');
+        }
+
+        function addDeviceUpdate(data) {
+            const changes = [];
+            if (data.changes.battery_changed) changes.push(`Battery: ${data.battery_level}%`);
+            if (data.changes.status_changed) changes.push(`Status: ${data.is_active ? 'Active' : 'Inactive'}`);
+
+            const message = `🔋 ${data.animal_name} device updated: ${changes.join(', ')}`;
+            addUpdate(message, 'device-update');
+        }
+
+        function addUpdate(message, className) {
+            const updatesEl = document.getElementById('updates');
+            const timestamp = new Date().toLocaleTimeString();
+            const updateEl = document.createElement('div');
+            updateEl.className = className;
+            updateEl.innerHTML = `${message} <span class="timestamp">[${timestamp}]</span>`;
+
+            updatesEl.insertBefore(updateEl, updatesEl.firstChild);
+
+            // Keep only last 50 updates
+            while (updatesEl.children.length > 50) {
+                updatesEl.removeChild(updatesEl.lastChild);
+            }
+        }
+
+        function clearUpdates() {
+            document.getElementById('updates').innerHTML = '<p>Updates cleared...</p>';
+        }
+
+        function getRecentLocations(minutes) {
+            if (!isConnected) {
+                alert('Please connect first');
+                return;
+            }
+
+            socket.send(JSON.stringify({
+                type: 'get_recent_locations',
+                minutes: minutes
+            }));
+        }
+
+        function subscribeToAnimal() {
+            const animalId = document.getElementById('animalId').value;
+            if (!animalId) {
+                alert('Please enter an Animal ID');
+                return;
+            }
+
+            if (!isConnected) {
+                alert('Please connect first');
+                return;
+            }
+
+            socket.send(JSON.stringify({
+                type: 'subscribe_animal',
+                animal_id: parseInt(animalId)
+            }));
+
+            addUpdate(`📺 Subscribed to Animal ${animalId}`, 'device-update');
+        }
+
+        function unsubscribeFromAnimal() {
+            const animalId = document.getElementById('animalId').value;
+            if (!animalId) {
+                alert('Please enter an Animal ID');
+                return;
+            }
+
+            if (!isConnected) {
+                alert('Please connect first');
+                return;
+            }
+
+            socket.send(JSON.stringify({
+                type: 'unsubscribe_animal',
+                animal_id: parseInt(animalId)
+            }));
+
+            addUpdate(`📺 Unsubscribed from Animal ${animalId}`, 'device-update');
+        }
+
+        // Auto-connect on page load
+        window.onload = connect;
+    </script>
+</body>
+</html>

@@ -1,169 +1,212 @@
-from rest_framework import generics,status,filters
-from rest_framework.decorators import api_view,permission_classes
-from rest_framework.permissions import AllowAny
+# tracking/views.py
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.views import APIView
-from django_filters.rest_framework import DjangoFilterBackend
-from django.contrib.gis.geos import Point
-from django.contrib.gis.db.models.functions import Distance
 from django.utils import timezone
-from django.db.models import Q,Count,Avg
 from datetime import timedelta
-import logging
+from django.db.models import Q
+import math
 
-
-from .models import (
-    GrazingZone, TrackingDevice, AnimalLocation,
-    GeofenceEvent, NotificationContact, NotificationLog,
-    AnimalGrazingAssignment
-)
+from .models import TrackingDevice, LocationUpdate, GeofenceZone, GeofenceAlert
 from .serializers import (
-    GrazingZoneSerializer, GrazingZoneGeoSerializer,
-    TrackingDeviceSerializer, AnimalLocationSerializer,
-    AnimalLocationGeoSerializer, GeofenceEventSerializer,
-    NotificationContactSerializer, NotificationLogSerializer,
-    AnimalGrazingAssignmentSerializer,
-    DeviceStatusUpdateSerializer
+    TrackingDeviceSerializer, LocationUpdateSerializer,
+    LocationUpdateCreateSerializer, GeofenceZoneSerializer, GeofenceAlertSerializer
 )
 
-from animals.models import Animal
 
-logger = logging.getLogger(__name__)
-
-
-# Create your views here.
-class GrazingZoneListCreateView(generics.ListCreateAPIView):
-    """List and create grazing zones"""
-    queryset = GrazingZone.objects.all()
-    serializer_class = GrazingZoneSerializer
-    filter_backends = [DjangoFilterBackend,filters.SearchFilter,filters.OrderingFilter]
-    filterset_fields = ['zone_type', 'is_active']
-    search_fields = ['name', 'description']
-    ordering_fields = ['name', 'created_at', 'zone_type']
-    ordering = ['name']
-
-class GrazingZoneDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Retrieve, update, and delete grazing zones"""
-    queryset = GrazingZone.objects.all()
-    serializer_class = GrazingZoneSerializer
-
-class GrazingZoneGeoView(generics.ListAPIView):
-    """GeoJSON endpoint for mapping applications"""
-    queryset = GrazingZone.objects.filter(is_active=True)
-    serializer_class = GrazingZoneGeoSerializer
-
-class TrackingDeviceListCreateView(generics.ListCreateAPIView):
-    """List and create tracking device"""
-    queryset = TrackingDevice.objects.select_related('animal').all()
-    serializer_class = TrackingDeviceSerializer
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter,filters.OrderingFilter]
-    filterset_fields = ['device_type', 'status', 'manufacturer']
-    search_fields = ['device_id', 'animal__tag_id', 'animal__name']
-    ordering_fields = ['device_id', 'created_at', 'assigned_date']
-    ordering = ['-created_at']
-
-
-class TrackingDeviceDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Retrieve, update, and delete tracking devices"""
-    queryset = TrackingDevice.objects.select_related('animal').all()
+class TrackingDeviceViewSet(viewsets.ModelViewSet):
+    queryset = TrackingDevice.objects.all()
     serializer_class = TrackingDeviceSerializer
 
-    def perform_update(self, serializer):
-        """Set assigned_date when animal is assigned"""
-        if 'animal' in serializer.validated_data and serializer.validated_data['animal']:
-            if not self.get_object().animal or self.get_object().animal != serializer.validated_data['animal']:
-                serializer.save(assigned_date=timezone.now())
-            else:
-                serializer.save()
-        else:
-            serializer.save()
+    @action(detail=True, methods=['get'])
+    def current_location(self, request, pk=None):
+        """Get the most recent location for a device"""
+        device = self.get_object()
+        latest_location = device.location_updates.first()
+        if latest_location:
+            serializer = LocationUpdateSerializer(latest_location)
+            return Response(serializer.data)
+        return Response({'detail': 'No location data available'}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=['get'])
+    def location_history(self, request, pk=None):
+        """Get location history for a device with optional time filtering"""
+        device = self.get_object()
+        hours = request.query_params.get('hours', 24)
+
+        try:
+            hours = int(hours)
+            since = timezone.now() - timedelta(hours=hours)
+            locations = device.location_updates.filter(timestamp__gte=since)
+            serializer = LocationUpdateSerializer(locations, many=True)
+            return Response(serializer.data)
+        except ValueError:
+            return Response({'error': 'Invalid hours parameter'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class AnimalLocationListCreateView(generics.ListCreateAPIView):
-    """List and create animal location records"""
-    queryset = AnimalLocation.objects.select_related('animal', 'device').prefetch_related('inside_zones').all()
-    serializer_class = AnimalLocationSerializer
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['animal', 'device', 'is_within_boundary']
-    ordering_fields = ['recorded_at', 'created_at']
-    ordering = ['-recorded_at']
+class LocationUpdateViewSet(viewsets.ModelViewSet):
+    queryset = LocationUpdate.objects.all()
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return LocationUpdateCreateSerializer
+        return LocationUpdateSerializer
+
+    def create(self, request, *args, **kwargs):
+        """Create a new location update and check geofences"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        location_update = serializer.save()
+
+        # Check geofences after creating location update
+        self._check_geofences(location_update)
+
+        # Return the created location with full details
+        response_serializer = LocationUpdateSerializer(location_update)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    def _check_geofences(self, location_update):
+        """Check if the location update triggers any geofence alerts"""
+        active_zones = GeofenceZone.objects.filter(is_active=True)
+
+        for zone in active_zones:
+            distance = self._calculate_distance(
+                float(location_update.latitude), float(location_update.longitude),
+                float(zone.center_latitude), float(zone.center_longitude)
+            )
+
+            is_inside = distance <= zone.radius
+
+            # Get the last alert for this device and zone
+            last_alert = GeofenceAlert.objects.filter(
+                device=location_update.device,
+                zone=zone
+            ).first()
+
+            # Determine if we need to create an alert
+            should_alert = False
+            alert_type = None
+
+            if is_inside and (not last_alert or last_alert.alert_type == 'EXIT'):
+                should_alert = True
+                alert_type = 'ENTER'
+            elif not is_inside and (last_alert and last_alert.alert_type == 'ENTER'):
+                should_alert = True
+                alert_type = 'EXIT'
+
+            if should_alert:
+                GeofenceAlert.objects.create(
+                    device=location_update.device,
+                    zone=zone,
+                    alert_type=alert_type,
+                    location_update=location_update
+                )
+
+    def _calculate_distance(self, lat1, lon1, lat2, lon2):
+        """Calculate distance between two points using Haversine formula"""
+        R = 6371000  # Earth's radius in meters
+
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        delta_lat = math.radians(lat2 - lat1)
+        delta_lon = math.radians(lon2 - lon1)
+
+        a = (math.sin(delta_lat / 2) * math.sin(delta_lat / 2) +
+             math.cos(lat1_rad) * math.cos(lat2_rad) *
+             math.sin(delta_lon / 2) * math.sin(delta_lon / 2))
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+        return R * c
+
+    @action(detail=False, methods=['get'])
+    def recent(self, request):
+        """Get recent location updates across all devices"""
+        minutes = request.query_params.get('minutes', 30)
+        try:
+            minutes = int(minutes)
+            since = timezone.now() - timedelta(minutes=minutes)
+            locations = self.queryset.filter(timestamp__gte=since)
+            serializer = self.get_serializer(locations, many=True)
+            return Response(serializer.data)
+        except ValueError:
+            return Response({'error': 'Invalid minutes parameter'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GeofenceZoneViewSet(viewsets.ModelViewSet):
+    queryset = GeofenceZone.objects.all()
+    serializer_class = GeofenceZoneSerializer
+
+    @action(detail=True, methods=['get'])
+    def animals_inside(self, request, pk=None):
+        """Get animals currently inside this geofence zone"""
+        zone = self.get_object()
+
+        # Get latest location for each active device
+        devices_inside = []
+        active_devices = TrackingDevice.objects.filter(is_active=True)
+
+        for device in active_devices:
+            latest_location = device.location_updates.first()
+            if latest_location:
+                distance = self._calculate_distance(
+                    float(latest_location.latitude), float(latest_location.longitude),
+                    float(zone.center_latitude), float(zone.center_longitude)
+                )
+                if distance <= zone.radius:
+                    devices_inside.append({
+                        'device_id': device.device_id,
+                        'animal_name': device.animal.name,
+                        'animal_id': device.animal.id,
+                        'distance_from_center': round(distance, 2)
+                    })
+
+        return Response(devices_inside)
+
+    def _calculate_distance(self, lat1, lon1, lat2, lon2):
+        """Calculate distance between two points using Haversine formula"""
+        R = 6371000  # Earth's radius in meters
+
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        delta_lat = math.radians(lat2 - lat1)
+        delta_lon = math.radians(lon2 - lon1)
+
+        a = (math.sin(delta_lat / 2) * math.sin(delta_lat / 2) +
+             math.cos(lat1_rad) * math.cos(lat2_rad) *
+             math.sin(delta_lon / 2) * math.sin(delta_lon / 2))
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+        return R * c
+
+
+class GeofenceAlertViewSet(viewsets.ModelViewSet):
+    queryset = GeofenceAlert.objects.all()
+    serializer_class = GeofenceAlertSerializer
 
     def get_queryset(self):
-        """Filter by date range and animal if specified"""
         queryset = super().get_queryset()
+        acknowledged = self.request.query_params.get('acknowledged')
 
-        # Filter by date range
-        start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
-
-        if start_date:
-            queryset = queryset.filter(recorded_at__gte=start_date)
-        if end_date:
-            queryset = queryset.filter(recorded_at__lte=end_date)
-
-        # Get recent locations only by default (last 24 hours)
-        if not start_date and not end_date:
-            cutoff_time = timezone.now() - timedelta(hours=24)
-            queryset = queryset.filter(recorded_at__gte=cutoff_time)
+        if acknowledged is not None:
+            if acknowledged.lower() == 'true':
+                queryset = queryset.filter(is_acknowledged=True)
+            elif acknowledged.lower() == 'false':
+                queryset = queryset.filter(is_acknowledged=False)
 
         return queryset
 
+    @action(detail=True, methods=['post'])
+    def acknowledge(self, request, pk=None):
+        """Mark an alert as acknowledged"""
+        alert = self.get_object()
+        alert.is_acknowledged = True
+        alert.save()
+        serializer = self.get_serializer(alert)
+        return Response(serializer.data)
 
-class AnimalLocationDetailView(generics.RetrieveAPIView):
-    """Retrieve specific animal location record"""
-    queryset = AnimalLocation.objects.select_related('animal', 'device').prefetch_related('inside_zones').all()
-    serializer_class = AnimalLocationSerializer
-
-
-class AnimalLocationGeoView(generics.ListAPIView):
-    """GeoJSON endpoint for animal locations"""
-    queryset = AnimalLocation.objects.select_related('animal').all()
-    serializer_class = AnimalLocationGeoSerializer
-
-    def get_queryset(self):
-        """Get latest locations for each animal"""
-        # Get most recent location for each animal
-        latest_locations = AnimalLocation.objects.values('animal').annotate(
-            latest_time=models.Max('recorded_at')
-        )
-
-        location_ids = []
-        for item in latest_locations:
-            location = AnimalLocation.objects.filter(
-                animal=item['animal'],
-                recorded_at=item['latest_time']
-            ).first()
-            if location:
-                location_ids.append(location.id)
-
-        return AnimalLocation.objects.filter(id__in=location_ids).select_related('animal')
-
-
-class AnimalLocationDetailView(generics.RetrieveAPIView):
-    """Retrieve specific animal location record"""
-    queryset = AnimalLocation.objects.select_related('animal', 'device').prefetch_related('inside_zones').all()
-    serializer_class = AnimalLocationSerializer
-
-
-class AnimalLocationGeoView(generics.ListAPIView):
-    """GeoJSON endpoint for animal locations"""
-    queryset = AnimalLocation.objects.select_related('animal').all()
-    serializer_class = AnimalLocationGeoSerializer
-
-    def get_queryset(self):
-        """Get latest locations for each animal"""
-        # Get most recent location for each animal
-        latest_locations = AnimalLocation.objects.values('animal').annotate(
-            latest_time=models.Max('recorded_at')
-        )
-
-        location_ids = []
-        for item in latest_locations:
-            location = AnimalLocation.objects.filter(
-                animal=item['animal'],
-                recorded_at=item['latest_time']
-            ).first()
-            if location:
-                location_ids.append(location.id)
-
-        return AnimalLocation.objects.filter(id__in=location_ids).select_related('animal')
+    @action(detail=False, methods=['get'])
+    def unacknowledged(self, request):
+        """Get all unacknowledged alerts"""
+        alerts = self.queryset.filter(is_acknowledged=False)
+        serializer = self.get_serializer(alerts, many=True)
+        return Response(serializer.data)

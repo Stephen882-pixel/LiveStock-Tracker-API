@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     # Local apps
     'animals',
     'tracking',
+    'channels',
+    'health',
     'django.contrib.gis',
 ]
 
@@ -79,7 +81,18 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'livestock_tracker.wsgi.application'
+# WSGI_APPLICATION = 'livestock_tracker.wsgi.application'
+
+ASGI_APPLICATION = 'livestock_monitoring.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)],
+        },
+    },
+}
 
 
 # Database
@@ -87,11 +100,14 @@ WSGI_APPLICATION = 'livestock_tracker.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        'NAME': 'livestock_monitoring',
+        'USER': 'postgres',
+        'PASSWORD': 'Kundan@1234',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -151,9 +167,47 @@ REST_FRAMEWORK = {
 }
 
 # CORS settings
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",
+#     "http://127.0.0.1:3000",
+# ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_ALL_ORIGINS = True  # For development only, use specific origins in production
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]   
+
+
+# Africa's Talking Configuration
+AFRICAS_TALKING_API_KEY = 'atsk_a5c17a8a12566f45fb4b0a985e6416ef5328749c7a4cb0905a79bc29c04ecc2397be11ab'  # Replace with actual key
+AFRICAS_TALKING_USERNAME = 'sandbox'  # Replace with your username
+AFRICAS_TALKING_SENDER_ID = '26062'
+
+# Email Configuration (optional)
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'  # or your email provider
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'your_email@gmail.com'
+# EMAIL_HOST_PASSWORD = 'your_app_password'
+# DEFAULT_FROM_EMAIL = 'your_email@gmail.com'
