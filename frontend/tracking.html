@@ -1,0 +1,72 @@
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tracking Management - LiveStock Tracker</title>
+     <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">🐄 LiveStock Tracker</a>
+            <ul class="nav-links">
+            <li><a href="index.html">Dashboard</a></li>
+            <li><a href="breeds.html">Breeds</a></li>
+            <li><a href="animals.html">Animals</a></li>
+            <li><a href="health.html">Health</a></li>
+            <li><a href="tracking.html" class="active">Tracking</a></li>
+            </ul>
+        </div>
+        </nav>
+    <main class="main-content">
+        <div class="container">
+            <div class="page-header">
+                <h1 class="page-title">📍 Tracking Management</h1>
+                <p class="page-subtitle">Manage GPS collars, ear tags, and tracking devices</p>
+            </div>
+
+            <div class="form-section">
+                <h2 class="form-title">➕ Add Tracking Device</h2>
+                <form id="tracking-device-form">
+                    <div class="form-grid">
+                        <input type="text" id="tracking-device-id" placeholder="Device ID" required>
+                        <select id="tracking-device-type">
+                            <option value="GPS_COLLAR">GPS Collar</option>
+                            <option value="EAR_TAG">Ear Tag</option>
+                            <option value="IMPLANT">Implant</option>
+                        </select>
+                        <select id="tracking-animal" required>
+                            <option value="">Assign to Animal</option>
+                        </select>
+                    </div>
+                    <button type="submit">Add Tracking Device</button>
+                </form>
+                <div class="error hidden" id="tracking-device-error"></div>
+                <div class="success hidden" id="tracking-device-success"></div>
+            </div>
+
+            <div class="table-section">
+                <h2 class="table-title">📋 Tracking Devices</h2>
+                <table id="tracking-devices-table">
+                    <thead>
+                        <tr>
+                            <th>Device ID</th>
+                            <th>Type</th>
+                            <th>Animal</th>
+                            <th>Active</th>
+                            <th>Battery</th>
+                            <th>Last Seen</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="tracking.js"></script>
+</body>
+</html>

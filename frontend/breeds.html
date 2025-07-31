@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breeds Management - LiveStock Tracker</title>
+     <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">🐄 LiveStock Tracker</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Dashboard</a></li>
+                <li><a href="breeds.html" class="active">Breeds</a></li>
+                <li><a href="animals.html">Animals</a></li>
+                <li><a href="health.html">Health</a></li>
+                <li><a href="tracking.html">Tracking</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="page-header">
+                <h1 class="page-title">🐂 Breeds Management</h1>
+                <p class="page-subtitle">Manage different livestock breeds and their characteristics</p>
+            </div>
+
+            <div class="form-section">
+                <h2 class="form-title">➕ Add New Breed</h2>
+                <form id="breed-form">
+                    <div class="form-grid">
+                        <input type="text" id="breed-name" placeholder="Breed Name" required>
+                        <input type="text" id="breed-origin" placeholder="Origin Country">
+                        <textarea id="breed-description" placeholder="Description"></textarea>
+                    </div>
+                    <button type="submit">Add Breed</button>
+                </form>
+                <div class="error hidden" id="breed-error"></div>
+                <div class="success hidden" id="breed-success"></div>
+            </div>
+
+            <div class="table-section">
+                <h2 class="table-title">📋 Breeds List</h2>
+                <table id="breeds-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th>Origin</th>
+                            <th>Animals Count</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="breeds.js"></script>
+</body>
+</html>
