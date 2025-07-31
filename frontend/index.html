@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveStock Tracker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🐄 LiveStock Tracker</h1>
+        
+        <!-- Breeds Section -->
+        <div class="section">
+            <h2>Breeds Management</h2>
+            <form id="breed-form">
+                <input type="text" id="breed-name" placeholder="Breed Name" required>
+                <textarea id="breed-description" placeholder="Description"></textarea>
+                <input type="text" id="breed-origin" placeholder="Origin Country">
+                <button type="submit">Add Breed</button>
+            </form>
+            <div class="error" id="breed-error"></div>
+            <div class="success" id="breed-success"></div>
+            
+            <table id="breeds-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Origin</th>
+                        <th>Animals Count</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- Animals Section -->
+        <div class="section">
+            <h2>Animals Management</h2>
+            <form id="animal-form">
+                <input type="text" id="animal-tag" placeholder="Tag ID" required>
+                <input type="text" id="animal-name" placeholder="Name" required>
+                <select id="animal-breed" required>
+                    <option value="">Select Breed</option>
+                </select>
+                <select id="animal-gender" required>
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                </select>
+                <input type="date" id="animal-dob" placeholder="Date of Birth" required>
+                <input type="number" id="animal-weight" placeholder="Weight (kg)" step="0.01" required>
+                <input type="text" id="animal-color" placeholder="Color">
+                <select id="animal-status">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="sold">Sold</option>
+                    <option value="deceased">Deceased</option>
+                </select>
+                <select id="animal-health">
+                    <option value="healthy">Healthy</option>
+                    <option value="sick">Sick</option>
+                    <option value="under_treatment">Under Treatment</option>
+                    <option value="recovering">Recovering</option>
+                </select>
+                <input type="text" id="animal-location" placeholder="Location">
+                <textarea id="animal-notes" placeholder="Notes"></textarea>
+                <button type="submit">Add Animal</button>
+            </form>
+            <div class="error" id="animal-error"></div>
+            <div class="success" id="animal-success"></div>
+            
+            <table id="animals-table">
+                <thead>
+                    <tr>
+                        <th>Tag ID</th>
+                        <th>Name</th>
+                        <th>Breed</th>
+                        <th>Gender</th>
+                        <th>Age (Years)</th>
+                        <th>Weight</th>
+                        <th>Status</th>
+                        <th>Health</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- Health Section -->
+        <div class="section">
+            <h2>Health Management</h2>
+            <div class="tabs">
+                <button type="button" class="tab-btn active" onclick="showHealthTab('events')">Health Events</button>
+                <button type="button" class="tab-btn" onclick="showHealthTab('vaccinations')">Vaccinations</button>
+                <button type="button" class="tab-btn" onclick="showHealthTab('treatments')">Treatments</button>
+            </div>
+            <div id="health-events-tab" class="health-tab">
+                <form id="health-event-form">
+                    <select id="health-animal-event" required><option value="">Select Animal</option></select>
+                    <select id="health-event-type" required>
+                        <option value="vaccination">Vaccination</option>
+                        <option value="treatment">Treatment</option>
+                        <option value="checkup">Health Checkup</option>
+                        <option value="illness">Illness</option>
+                        <option value="injury">Injury</option>
+                    </select>
+                    <input type="text" id="health-title" placeholder="Title" required>
+                    <textarea id="health-description" placeholder="Description"></textarea>
+                    <select id="health-severity">
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
+                    </select>
+                    <input type="datetime-local" id="health-event-date" required>
+                    <input type="text" id="health-vet" placeholder="Veterinarian">
+                    <input type="number" id="health-cost" placeholder="Cost">
+                    <textarea id="health-notes" placeholder="Notes"></textarea>
+                    <button type="submit">Add Health Event</button>
+                </form>
+                <div class="error" id="health-event-error"></div>
+                <div class="success" id="health-event-success"></div>
+                <table id="health-events-table">
+                    <thead>
+                        <tr>
+                            <th>Animal</th><th>Type</th><th>Title</th><th>Severity</th><th>Date</th><th>Vet</th><th>Cost</th><th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="health-vaccinations-tab" class="health-tab" style="display:none;">
+                <form id="vaccination-form">
+                    <select id="vacc-animal" required><option value="">Select Animal</option></select>
+                    <input type="text" id="vaccine-name" placeholder="Vaccine Name" required>
+                    <input type="text" id="vaccine-type" placeholder="Vaccine Type" required>
+                    <input type="date" id="vaccine-admin-date" required>
+                    <input type="date" id="vaccine-next-due">
+                    <input type="text" id="vaccine-batch" placeholder="Batch Number">
+                    <input type="text" id="vaccine-vet" placeholder="Veterinarian">
+                    <input type="number" id="vaccine-cost" placeholder="Cost">
+                    <textarea id="vaccine-notes" placeholder="Notes"></textarea>
+                    <button type="submit">Add Vaccination</button>
+                </form>
+                <div class="error" id="vaccination-error"></div>
+                <div class="success" id="vaccination-success"></div>
+                <table id="vaccinations-table">
+                    <thead>
+                        <tr>
+                            <th>Animal</th><th>Name</th><th>Type</th><th>Admin Date</th><th>Next Due</th><th>Vet</th><th>Cost</th><th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="health-treatments-tab" class="health-tab" style="display:none;">
+                <form id="treatment-form">
+                    <select id="treat-animal" required><option value="">Select Animal</option></select>
+                    <input type="text" id="treat-condition" placeholder="Condition" required>
+                    <input type="text" id="treat-medication" placeholder="Medication" required>
+                    <input type="text" id="treat-dosage" placeholder="Dosage" required>
+                    <input type="text" id="treat-frequency" placeholder="Frequency" required>
+                    <input type="date" id="treat-start-date" required>
+                    <input type="date" id="treat-end-date">
+                    <select id="treat-status">
+                        <option value="ongoing">Ongoing</option>
+                        <option value="completed">Completed</option>
+                        <option value="discontinued">Discontinued</option>
+                    </select>
+                    <input type="text" id="treat-vet" placeholder="Veterinarian">
+                    <input type="number" id="treat-cost" placeholder="Cost">
+                    <textarea id="treat-notes" placeholder="Notes"></textarea>
+                    <button type="submit">Add Treatment</button>
+                </form>
+                <div class="error" id="treatment-error"></div>
+                <div class="success" id="treatment-success"></div>
+                <table id="treatments-table">
+                    <thead>
+                        <tr>
+                            <th>Animal</th><th>Condition</th><th>Medication</th><th>Start</th><th>End</th><th>Status</th><th>Vet</th><th>Cost</th><th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html> 
